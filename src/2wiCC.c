@@ -24,7 +24,21 @@ uint8_t imu_pose_data[12]; // Single IMU sample: 6 bytes accel + 6 bytes gyro
 
 uint8_t play_mode = A_RT;
 
-#define FRAME_TIME_US 16666 // 60 FPS
+// Was 16666 (60 FPS). Reduced to 1000us (1000 FPS / 1ms tick) so host can
+// express button press/release durations in 1ms granularity instead of being
+// stuck on 16.67ms 60Hz frame quantization. This is what 1.uf2 does
+// effectively via TinyUSB's tud_hid_n_ready/report busy-loop throttled by
+// bInterval=1ms — but here we do it via explicit timer so host BUF playback
+// model still works (1024 frame ring buffer becomes ~1.024s of playback
+// instead of 17s, so flow control via +GQR needs to be alert).
+//
+// Coordinated host-side changes:
+//   - SPEED_PRESETS rescale: pressFrames/releaseFrames units are now ms,
+//     not 60Hz frames. Old fast (pf=2 rf=2 = 67ms/step) ≈ new pf=33 rf=33.
+//   - estimateRuntimeMs: msPerStep = (pf + rf) instead of (pf + rf) × 1000/60.
+//   - DPAD_CHUNK_PAUSE_FRAMES (in rp2040.ts adapter): bump from 6 to ~100
+//     because each frame is now 1ms instead of 16.67ms.
+#define FRAME_TIME_US 1000
 static uint32_t next_frame_time = 0;
 static bool vsync_en = false;
 static uint32_t frame_delay_us = 10000; // delay from vsync to con state update
