@@ -8,37 +8,40 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 15  # prevent runaway builds (was 30+ min on cold cache)
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install pico-sdk dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            cmake \
-            gcc-arm-none-eabi \
-            libnewlib-arm-none-eabi \
-            libstdc++-arm-none-eabi-newlib \
-            build-essential \
-            git \
-            python3
+      # Cache pico-sdk between builds (only re-clone on version change)
+      - name: Cache pico-sdk
+        id: cache-pico-sdk
+        uses: actions/cache@v4
+        with:
+          path: ~/pico-sdk
+          key: pico-sdk-2.1.1-v2
 
       - name: Clone pico-sdk 2.1.1
+        if: steps.cache-pico-sdk.outputs.cache-hit != 'true'
         run: |
           git clone --depth 1 --branch 2.1.1 https://github.com/raspberrypi/pico-sdk.git $HOME/pico-sdk
           cd $HOME/pico-sdk
           git submodule update --init --depth 1
 
+      # Cache apt deb packages so re-runs skip the 588 MB download
+      - name: Cache apt packages
+        uses: awalsh128/cache-apt-pkgs-action@v1
+        with:
+          packages: cmake gcc-arm-none-eabi libnewlib-arm-none-eabi libstdc++-arm-none-eabi-newlib build-essential
+          version: 1.0
+
       - name: Configure
-        env:
-          PICO_SDK_PATH: ${{ github.workspace }}/../pico-sdk
         run: |
           export PICO_SDK_PATH=$HOME/pico-sdk
           mkdir -p build
           cd build
-          cmake -DCMAKE_BUILD_TYPE=Release -DPICO_BOARD=waveshare_rp2040_zero ..
+          cmake -DCMAKE_BUILD_TYPE=Release ..
 
       - name: Build
         run: |
@@ -51,13 +54,6 @@ jobs:
       - name: Upload UF2
         uses: actions/upload-artifact@v4
         with:
-          name: 2wiCC-bInterval1
+          name: 2wiCC-1ms
           path: build/2wiCC.uf2
           if-no-files-found: error
-
-      - name: Upload ELF (for debugging)
-        uses: actions/upload-artifact@v4
-        with:
-          name: 2wiCC-bInterval1-elf
-          path: build/2wiCC.elf
-          if-no-files-found: warn
