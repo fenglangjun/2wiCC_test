@@ -97,8 +97,10 @@ uint8_t const desc_configuration[] =
 		TUD_CONFIG_DESCRIPTOR(1, ITF_NUM_TOTAL, 0, CONFIG_TOTAL_LEN, 0xA0, 500),
 
 		// Interface number, string index, protocol, report descriptor len, EP In & Out address, size & polling interval
+		// bInterval: 8ms -> 1ms (matches HORI Pokken 1.uf2 polling rate; enables reliable
+		// pressFrames=1 releaseFrames=1 host-side timing without drift).
 		TUD_HID_INOUT_DESCRIPTOR(ITF_NUM_HID, 0, HID_ITF_PROTOCOL_NONE, sizeof(desc_hid_report),
-								 EPNUM_HID_IN, EPNUM_HID_OUT, 64, 8)};
+								 EPNUM_HID_IN, EPNUM_HID_OUT, 64, 1)};
 
 // Invoked when received GET CONFIGURATION DESCRIPTOR
 // Application return pointer to descriptor

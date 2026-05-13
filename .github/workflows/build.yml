@@ -1,0 +1,63 @@
+name: Build 2wiCC UF2
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install pico-sdk dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            cmake \
+            gcc-arm-none-eabi \
+            libnewlib-arm-none-eabi \
+            libstdc++-arm-none-eabi-newlib \
+            build-essential \
+            git \
+            python3
+
+      - name: Clone pico-sdk 2.1.1
+        run: |
+          git clone --depth 1 --branch 2.1.1 https://github.com/raspberrypi/pico-sdk.git $HOME/pico-sdk
+          cd $HOME/pico-sdk
+          git submodule update --init --depth 1
+
+      - name: Configure
+        env:
+          PICO_SDK_PATH: ${{ github.workspace }}/../pico-sdk
+        run: |
+          export PICO_SDK_PATH=$HOME/pico-sdk
+          mkdir -p build
+          cd build
+          cmake -DCMAKE_BUILD_TYPE=Release -DPICO_BOARD=waveshare_rp2040_zero ..
+
+      - name: Build
+        run: |
+          cd build
+          make -j$(nproc)
+
+      - name: List build artifacts
+        run: ls -la build/
+
+      - name: Upload UF2
+        uses: actions/upload-artifact@v4
+        with:
+          name: 2wiCC-bInterval1
+          path: build/2wiCC.uf2
+          if-no-files-found: error
+
+      - name: Upload ELF (for debugging)
+        uses: actions/upload-artifact@v4
+        with:
+          name: 2wiCC-bInterval1-elf
+          path: build/2wiCC.elf
+          if-no-files-found: warn
